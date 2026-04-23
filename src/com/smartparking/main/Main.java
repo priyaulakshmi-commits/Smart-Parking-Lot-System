@@ -3,14 +3,19 @@ package com.smartparking.main;
 import com.smartparking.model.*;
 import com.smartparking.service.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class Main {
 
-    private static Scanner sc = new Scanner(System.in);
+    private static final Scanner sc = new Scanner(System.in);
+    private static final DateTimeFormatter formatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public static void main(String[] args) {
 
+        // ===== Create Parking Spots =====
         List<ParkingSpot> spots = new ArrayList<>();
 
         for (int i = 1; i <= 5; i++)
@@ -22,104 +27,81 @@ public class Main {
         for (int i = 9; i <= 10; i++)
             spots.add(new ParkingSpot(i, VehicleType.BUS));
 
-        Floor floor = new Floor(1, spots);
-        ParkingLot lot = new ParkingLot(Arrays.asList(floor));
+        ParkingLot parkingLot = new ParkingLot(
+                Arrays.asList(new Floor(1, spots))
+        );
 
-        Map<String, Ticket> tickets = new HashMap<>();
-
+        // ===== MENU LOOP =====
         while (true) {
-            System.out.println("\n==== SMART PARKING SYSTEM ====");
+
+            System.out.println("\n===== SMART PARKING SYSTEM =====");
             System.out.println("1. Check-In");
             System.out.println("2. Check-Out");
-            System.out.println("3. View Availability");
-            System.out.println("4. Exit");
+            System.out.println("3. Exit");
             System.out.print("Choose option: ");
 
             int choice = sc.nextInt();
+            sc.nextLine(); // clear buffer
 
-            switch (choice) {
+            try {
 
-                case 1:
-                    checkIn(lot, tickets);
-                    break;
+                switch (choice) {
 
-                case 2:
-                    checkOut(lot, tickets);
-                    break;
+                    // ================= CHECK-IN =================
+                    case 1:
+                        System.out.print("Enter Vehicle Number: ");
+                        String number = sc.nextLine();
 
-                case 3:
-                    showAvailability(spots);
-                    break;
+                        System.out.println("Select Vehicle Type:");
+                        System.out.println("1. Motorcycle  2. Car  3. Bus");
+                        int typeChoice = sc.nextInt();
+                        sc.nextLine();
 
-                case 4:
-                    System.out.println("Exiting...");
-                    return;
+                        VehicleType type = switch (typeChoice) {
+                            case 1 -> VehicleType.MOTORCYCLE;
+                            case 2 -> VehicleType.CAR;
+                            case 3 -> VehicleType.BUS;
+                            default -> throw new RuntimeException("Invalid vehicle type");
+                        };
 
-                default:
-                    System.out.println("Invalid choice!");
+                        System.out.print("Enter Entry Time (yyyy-MM-dd HH:mm): ");
+                        LocalDateTime entryTime =
+                                LocalDateTime.parse(sc.nextLine(), formatter);
+
+                        Ticket ticket = parkingLot.checkIn(
+                                new Vehicle(number, type),
+                                entryTime
+                        );
+
+                        System.out.println("🎫 Ticket Generated: " + ticket.getId());
+                        break;
+
+                    // ================= CHECK-OUT =================
+                    case 2:
+                        System.out.print("Enter Ticket ID: ");
+                        String ticketId = sc.nextLine();
+
+                        System.out.print("Enter Exit Time (yyyy-MM-dd HH:mm): ");
+                        LocalDateTime exitTime =
+                                LocalDateTime.parse(sc.nextLine(), formatter);
+
+                        double fee = parkingLot.checkOut(ticketId, exitTime);
+
+                        System.out.println("💰 Parking Fee: ₹" + fee);
+                        break;
+
+                    // ================= EXIT =================
+                    case 3:
+                        System.out.println("👋 Exiting system...");
+                        return;
+
+                    default:
+                        System.out.println("❌ Invalid choice");
+                }
+
+            } catch (Exception e) {
+                System.out.println("⚠️ Error: " + e.getMessage());
             }
         }
-    }
-
-    /* ================= CHECK-IN ================= */
-    private static void checkIn(ParkingLot lot, Map<String, Ticket> tickets) {
-
-        System.out.print("Enter vehicle number: ");
-        String number = sc.next();
-
-        System.out.println("Select vehicle type:");
-        System.out.println("1. MOTORCYCLE");
-        System.out.println("2. CAR");
-        System.out.println("3. BUS");
-
-        int typeChoice = sc.nextInt();
-
-        VehicleType type = switch (typeChoice) {
-            case 1 -> VehicleType.MOTORCYCLE;
-            case 2 -> VehicleType.CAR;
-            case 3 -> VehicleType.BUS;
-            default -> throw new RuntimeException("Invalid type");
-        };
-
-        Vehicle vehicle = new Vehicle(number, type);
-
-        try {
-            Ticket ticket = lot.checkIn(vehicle);
-            tickets.put(ticket.getId(), ticket);
-
-            System.out.println("✅ Vehicle Parked!");
-            System.out.println("Ticket ID: " + ticket.getId());
-
-        } catch (Exception e) {
-            System.out.println("❌ " + e.getMessage());
-        }
-    }
-
-    /* ================= CHECK-OUT ================= */
-    private static void checkOut(ParkingLot lot, Map<String, Ticket> tickets) {
-
-        System.out.print("Enter Ticket ID: ");
-        String id = sc.next();
-
-        try {
-            double fee = lot.checkOut(id);
-            tickets.remove(id);
-
-            System.out.println("💰 Fee: " + fee);
-
-        } catch (Exception e) {
-            System.out.println("❌ " + e.getMessage());
-        }
-    }
-
-    /* ================= AVAILABILITY ================= */
-    private static void showAvailability(List<ParkingSpot> spots) {
-
-        long free = spots.stream().filter(ParkingSpot::isAvailable).count();
-        long occupied = spots.size() - free;
-
-        System.out.println("🅿️ Total Spots: " + spots.size());
-        System.out.println("✅ Available: " + free);
-        System.out.println("❌ Occupied: " + occupied);
     }
 }
